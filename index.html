@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>طلبات الطعام | Yehia</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1020;color:#f4f6fb;font-family:Cairo,sans-serif}
+header{padding:22px 16px;background:#121a2d;border-bottom:1px solid #26334c}
+header h1{margin:0;font-size:23px}
+header p{margin:4px 0 0;color:#9ba9c1;font-size:13px}
+main{max-width:850px;margin:auto;padding:16px}
+.card{background:#131d31;border:1px solid #263650;border-radius:16px;padding:16px;margin:14px 0}
+h2{font-size:18px;margin:0 0 14px}
+h3{font-size:15px;color:#8fb7ff;margin:16px 0 8px}
+input,button{font-family:inherit}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid #34435d;background:#0c1527;color:white;margin:6px 0 12px}
+button{border:0;border-radius:10px;padding:11px 15px;background:#3478f6;color:white;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+.secondary{background:#263650}
+.danger{background:#b83e4b}
+.success{background:#16875e}
+.item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #263650}
+.item:last-child{border:0}
+.item small{display:block;color:#98a9c2}
+.qty{display:flex;align-items:center;gap:8px}
+.qty button{padding:5px 12px}
+.qty b{min-width:20px;text-align:center}
+.muted{color:#9ba9c1;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row input{flex:1;min-width:100px}
+.total{font-size:20px;font-weight:bold;color:#65dca8}
+.hidden{display:none!important}
+.order{padding:13px 0;border-bottom:1px solid #30405b}
+.order:last-child{border:0}
+.pill{display:inline-block;padding:3px 9px;border-radius:20px;background:#263650;font-size:12px}
+.status{color:#65dca8}
+label{font-size:13px;color:#aebbd0}
+.notice{padding:12px;background:#202d45;border-radius:10px;font-size:13px;margin:10px 0}
+</style>
+</head>
+<body>
+<header>
+<h1>🍽️ طلبات الطعام</h1>
+<p>كشري الرحماني | نظام طلبات الموظفين</p>
+</header>
+
+<main>
+<section class="card">
+<div class="row" style="justify-content:space-between">
+<h2>حالة استقبال الطلبات</h2>
+<span id="openState" class="pill">جاري التحميل...</span>
+</div>
+<div id="closedMsg" class="notice hidden">استقبال الطلبات مغلق حاليًا من الإدارة.</div>
+</section>
+
+<section class="card" id="employee">
+<h2>📝 تسجيل طلب جديد</h2>
+<label>اسم الموظف</label>
+<input id="empName" placeholder="اكتب اسمك">
+<label>رقم PC</label>
+<input id="pcNumber" placeholder="رقم الجهاز">
+
+<div id="menu"><p class="muted">جاري تحميل القائمة...</p></div>
+
+<div class="row" style="justify-content:space-between;margin-top:15px">
+<span>عدد الأصناف: <b id="count">0</b></span>
+<button id="submitOrder" onclick="submitOrder()">تأكيد الطلب</button>
+</div>
+<p class="muted" id="employeeMsg"></p>
+</section>
+
+<section class="card">
+<h2>📦 طلباتي على هذا الجهاز</h2>
+<div id="myOrders" class="muted">لا توجد طلبات محفوظة على هذا الجهاز.</div>
+</section>
+
+<section class="card" id="loginCard">
+<h2>🔐 دخول المسؤول</h2>
+<input id="adminEmail" type="email" placeholder="البريد الإلكتروني" value="yhyaymn94@gmail.com">
+<input id="adminPassword" type="password" placeholder="كلمة المرور">
+<button onclick="adminLogin()">دخول لوحة التحكم</button>
+<p id="loginMsg" class="muted"></p>
+</section>
+
+<section class="hidden" id="adminPanel">
+<div class="card">
+<div class="row" style="justify-content:space-between">
+<h2>👑 لوحة المسؤول</h2>
+<button class="danger" onclick="adminLogout()">تسجيل خروج</button>
+</div>
+<p class="muted">أنت مسجل دخولك كمسؤول.</p>
+<div class="row">
+<button id="toggleOpen" onclick="toggleOrders()">فتح استقبال الطلبات</button>
+<button class="secondary" onclick="refreshAdmin()">تحديث البيانات</button>
+</div>
+</div>
+
+<div class="card">
+<h2>💰 إدارة أسعار القائمة</h2>
+<p class="muted">حدد سعر كل صنف ثم اضغط حفظ.</p>
+<div id="priceList"></div>
+</div>
+
+<div class="card">
+<h2>📊 ملخص الطلبات</h2>
+<div id="summary"></div>
+</div>
+
+<div class="card">
+<h2>📋 طلبات الموظفين</h2>
+<div id="allOrders">جاري التحميل...</div>
+</div>
+
+<div class="card">
+<h2>🧮 إجمالي كميات الأصناف</h2>
+<div id="itemTotals"></div>
+</div>
+</section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://rmhcmlujiacuydgmchih.supabase.co";
+const SUPABASE_KEY = "sb_publishable_M5WAfXOvnYVbOiAQ1RLUkA_FnujlY9-";
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let menuItems=[];
+let quantities={};
+let isOpen=false;
+let currentUser=null;
+let orders=[];
+
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toFixed(2)+" جنيه";
+
+async function loadSettings(){
+ const {data,error}=await db.from("food_order_settings").select("*").eq("singleton",true).single();
+ if(error){$("openState").textContent="تعذر الاتصال";return}
+ isOpen=data.is_open;
+ $("openState").textContent=isOpen?"استقبال الطلبات مفتوح":"استقبال الطلبات مغلق";
+ $("openState").style.color=isOpen?"#65dca8":"#ff8585";
+ $("closedMsg").classList.toggle("hidden",isOpen);
+ $("submitOrder").disabled=!isOpen;
+ $("toggleOpen").textContent=isOpen?"إغلاق استقبال الطلبات":"فتح استقبال الطلبات";
+}
+
+async function loadMenu(){
+ const {data,error}=await db.from("food_menu_items").select("*").eq("active",true).order("sort_order");
+ if(error){$("menu").textContent="تعذر تحميل القائمة";return}
+ menuItems=data||[];
+ renderMenu();
+ if(currentUser)renderPrices();
+}
+
+function renderMenu(){
+ const groups={};
+ menuItems.forEach(x=>(groups[x.category]??=[]).push(x));
+ $("menu").innerHTML=Object.entries(groups).map(([cat,items])=>`
+ <h3>${esc(cat)}</h3>
+ ${items.map(x=>`
+ <div class="item">
+ <div><b>${esc(x.name)}</b><small>${x.price==null?"السعر لم يحدد بعد":money(x.price)}</small></div>
+ <div class="qty">
+ <button class="secondary" onclick="changeQty('${x.id}',-1)">−</button>
+ <b id="q-${x.id}">${quantities[x.id]||0}</b>
+ <button onclick="changeQty('${x.id}',1)">+</button>
+ </div>
+ </div>`).join("")}`).join("");
+ updateCount();
+}
+
+function changeQty(id,delta){
+ const n=Math.max(0,Math.min(50,(quantities[id]||0)+delta));
+ quantities[id]=n;
+ const el=$("q-"+id);if(el)el.textContent=n;
+ updateCount();
+}
+function updateCount(){
+ $("count").textContent=Object.values(quantities).reduce((a,b)=>a+b,0);
+}
+
+function esc(s){
+ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function token(){
+ const a=new Uint8Array(32);
+ crypto.getRandomValues(a);
+ return Array.from(a,x=>x.toString(16).padStart(2,"0")).join("");
+}
+function getMine(){
+ try{return JSON.parse(localStorage.getItem("food_my_orders")||"[]")}catch{return []}
+}
+function saveMine(a){localStorage.setItem("food_my_orders",JSON.stringify(a))}
+
+async function submitOrder(){
+ if(!isOpen){alert("استقبال الطلبات مغلق");return}
+ const name=$("empName").value.trim();
+ const pc=$("pcNumber").value.trim();
+ const items=Object.entries(quantities).filter(([id,q])=>q>0).map(([id,qty])=>({id,qty}));
+ if(name.length<2||!pc){alert("اكتب الاسم ورقم PC");return}
+ if(!items.length){alert("اختار صنف واحد على الأقل");return}
+ if(items.some(i=>{const m=menuItems.find(x=>x.id===i.id);return !m||m.price==null})){
+ alert("يوجد صنف لم يحدد سعره المسؤول بعد");return
+ }
+ const cancelToken=token();
+ $("submitOrder").disabled=true;
+ const {data,error}=await db.rpc("create_food_order",{
+ p_employee_name:name,p_pc_number:pc,p_items:items,p_cancel_token:cancelToken
+ });
+ $("submitOrder").disabled=!isOpen;
+ if(error){alert(error.message);return}
+ const mine=getMine();
+ mine.unshift({id:data,token:cancelToken,name,pc});
+ saveMine(mine);
+ quantities={};
+ renderMenu();
+ renderMyOrders();
+ $("employeeMsg").textContent="تم إرسال طلبك بنجاح ❤️";
+ if(currentUser)refreshAdmin();
+}
+
+function renderMyOrders(){
+ const mine=getMine();
+ $("myOrders").innerHTML=mine.length?mine.map(o=>`
+ <div class="order">
+ <b>${esc(o.name)}</b> — PC ${esc(o.pc)}
+ <div class="muted">${esc(o.id)}</div>
+ <button class="danger" onclick="cancelMine('${o.id}')">إلغاء الطلب</button>
+ </div>`).join(""):"لا توجد طلبات محفوظة على هذا الجهاز.";
+}
+async function cancelMine(id){
+ const mine=getMine(),o=mine.find(x=>x.id===id);
+ if(!o||!confirm("متأكد من إلغاء الطلب؟"))return;
+ const {data,error}=await db.rpc("cancel_food_order",{p_order_id:id,p_cancel_token:o.token});
+ if(error){alert(error.message);return}
+ if(!data){alert("تعذر الإلغاء؛ ربما تم إلغاء الطلب بالفعل");return}
+ saveMine(mine.filter(x=>x.id!==id));
+ renderMyOrders();
+ if(currentUser)refreshAdmin();
+}
+
+async function adminLogin(){
+ const email=$("adminEmail").value.trim();
+ const password=$("adminPassword").value;
+ $("loginMsg").textContent="جاري تسجيل الدخول...";
+ const {data,error}=await db.auth.signInWithPassword({email,password});
+ if(error){$("loginMsg").textContent=error.message;return}
+ currentUser=data.user;
+ await checkAdmin();
+}
+async function checkAdmin(){
+ if(!currentUser)return;
+ const {data,error}=await db.rpc("food_is_admin");
+ if(error||!data){
+ await db.auth.signOut();currentUser=null;
+ $("loginMsg").textContent="هذا الحساب ليس لديه صلاحية المسؤول.";
+ return;
+ }
+ $("loginCard").classList.add("hidden");
+ $("adminPanel").classList.remove("hidden");
+ await refreshAdmin();
+ subscribeRealtime();
+}
+async function adminLogout(){
+ await db.auth.signOut();
+ currentUser=null;
+ $("adminPanel").classList.add("hidden");
+ $("loginCard").classList.remove("hidden");
+}
+async function toggleOrders(){
+ const next=!isOpen;
+ const {error}=await db.from("food_order_settings").update({is_open:next,updated_at:new Date().toISOString()}).eq("singleton",true);
+ if(error){alert(error.message);return}
+ await loadSettings();
+}
+async function renderPrices(){
+ $("priceList").innerHTML=menuItems.map(x=>`
+ <div class="item">
+ <div style="flex:1"><b>${esc(x.name)}</b><small>${esc(x.category)}</small></div>
+ <input id="price-${x.id}" type="number" min="0" step="0.01" placeholder="السعر" value="${x.price??""}" style="max-width:110px;margin:0">
+ <button onclick="savePrice('${x.id}')">حفظ</button>
+ </div>`).join("");
+}
+async function savePrice(id){
+ const value=$("price-"+id).value;
+ if(value===""||!Number.isFinite(Number(value))||Number(value)<0){alert("اكتب سعرًا صحيحًا");return}
+ const {error}=await db.from("food_menu_items").update({price:Number(value)}).eq("id",id);
+ if(error){alert(error.message);return}
+ await loadMenu();
+ alert("تم حفظ السعر");
+}
+async function refreshAdmin(){
+ if(!currentUser)return;
+ await loadSettings();
+ await loadMenu();
+ const {data,error}=await db.from("food_orders").select("*").order("created_at",{ascending:false});
+ if(error){$("allOrders").textContent=error.message;return}
+ orders=data||[];
+ renderAdminOrders();
+}
+function renderAdminOrders(){
+ const active=orders.filter(o=>o.status==="active");
+ const total=active.reduce((s,o)=>s+Number(o.total),0);
+ $("summary").innerHTML=`
+ <div class="row">
+ <div class="card" style="flex:1"><small>الطلبات النشطة</small><h2>${active.length}</h2></div>
+ <div class="card" style="flex:1"><small>إجمالي الطلبات</small><h2>${orders.length}</h2></div>
+ <div class="card" style="flex:1"><small>الإجمالي المستحق</small><h2 class="total">${money(total)}</h2></div>
+ </div>`;
+ $("allOrders").innerHTML=orders.length?orders.map(o=>`
+ <div class="order">
+ <div class="row" style="justify-content:space-between">
+ <b>${esc(o.employee_name)} — PC ${esc(o.pc_number)}</b>
+ <span class="pill">${o.status==="active"?"نشط":"ملغي"}</span>
+ </div>
+ <small class="muted">${new Date(o.created_at).toLocaleString("ar-EG")}</small>
+ ${(o.items||[]).map(i=>`<div class="muted">${esc(i.name)} × ${i.qty} — ${money(i.unit_price*i.qty)}</div>`).join("")}
+ <p class="total">الإجمالي: ${money(o.total)}</p>
+ </div>`).join(""):"لا توجد طلبات حتى الآن.";
+ const sums={};
+ active.forEach(o=>(o.items||[]).forEach(i=>sums[i.name]=(sums[i.name]||0)+Number(i.qty)));
+ $("itemTotals").innerHTML=Object.keys(sums).length?Object.entries(sums).map(([n,q])=>`
+ <div class="item"><b>${esc(n)}</b><span class="pill">${q} قطعة</span></div>`).join(""):"لا توجد أصناف مطلوبة.";
+}
+let channel=null;
+function subscribeRealtime(){
+ if(channel)db.removeChannel(channel);
+ channel=db.channel("food-admin-live")
+ .on("postgres_changes",{event:"*",schema:"public",table:"food_orders"},()=>refreshAdmin())
+ .on("postgres_changes",{event:"*",schema:"public",table:"food_menu_items"},()=>loadMenu())
+ .on("postgres_changes",{event:"*",schema:"public",table:"food_order_settings"},()=>loadSettings())
+ .subscribe();
+}
+async function start(){
+ await loadSettings();
+ await loadMenu();
+ renderMyOrders();
+ const {data}=await db.auth.getSession();
+ if(data.session){
+ currentUser=data.session.user;
+ await checkAdmin();
+ }
+}
+db.auth.onAuthStateChange((event,session)=>{
+ if(event==="SIGNED_OUT"){currentUser=null}
+});
+start();
+</script>
+</body>
+</html>
