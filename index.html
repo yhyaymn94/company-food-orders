@@ -20,6 +20,9 @@ main{max-width:1050px;margin:22px auto;padding:0 14px 50px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:17px;margin-bottom:16px}
 h2{font-size:17px;margin:0 0 14px}
 h3{font-size:15px;margin:12px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 input,select,button{font:inherit}
 input,select{width:100%;padding:12px;background:#0c1423;color:white;border:1px solid var(--line);border-radius:10px;outline:none}
 input:focus,select:focus{border-color:var(--blue)}
@@ -30,9 +33,6 @@ button.green{background:#087c5a}
 button.red{background:#a52e38}
 button.yellow{background:#94651b}
 button.small{font-size:12px;padding:7px 10px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.row>*{flex:1}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .muted{color:var(--muted);font-size:12px}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .tabs button{flex:1;min-width:120px}
@@ -50,8 +50,8 @@ button.small{font-size:12px;padding:7px 10px}
 .pill{background:#263b5d;color:#b7d0ff;padding:4px 9px;border-radius:20px;font-size:11px}
 .pill.cancelled{background:#49252b;color:#ffb6bd}
 .hidden{display:none!important}
-hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 .notice{padding:12px;border-radius:10px;background:#182c43;color:#c4dcff;font-size:13px;margin:10px 0}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 .empty{text-align:center;color:var(--muted);padding:20px}
 .category-title{color:#8fb5ff;font-weight:800;margin:18px 0 8px}
 .admin-price{display:flex;align-items:center;gap:8px}
@@ -100,7 +100,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 
   <div class="card">
    <h2>📦 طلباتي</h2>
-   <div class="muted">طلباتك المحفوظة على هذا الجهاز، ويمكنك عرض الإجمالي أو حذف طلبك.</div>
+   <div class="muted">طلباتك المحفوظة على هذا الجهاز.</div>
    <div id="myOrders"><div class="empty">لا توجد طلبات حتى الآن.</div></div>
   </div>
  </section>
@@ -127,7 +127,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
 
    <div class="card">
     <h2>💰 إدارة الأسعار</h2>
-    <div class="muted">غيّر السعر ثم اضغط حفظ. السعر الجديد يظهر للموظفين مباشرة.</div>
+    <div class="muted">غيّر السعر ثم اضغط حفظ.</div>
     <div id="adminMenu"></div>
    </div>
 
@@ -146,7 +146,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
     <h2>📋 جميع الطلبات</h2>
     <div id="adminOrders"><div class="empty">لا توجد طلبات.</div></div>
     <hr>
-    <button class="red" style="width:100%" onclick="deleteAllOrders()">🗑️ مسح جميع الطلبات</button>
+    <button class="red" id="deleteAllButton" style="width:100%" onclick="deleteAllOrders()">🗑️ مسح جميع الطلبات</button>
    </div>
 
    <div class="card">
@@ -253,7 +253,7 @@ async function submitOrder(){
  $("submitOrder").disabled=!isOpen;
  if(error){alert(error.message||"تعذر إرسال الطلب.");return}
  const orderId=typeof data==="string"?data:data?.id;
- if(!orderId){alert("تم إرسال الطلب لكن تعذر قراءة رقم الطلب. تواصل مع المسؤول.");return}
+ if(!orderId){alert("تعذر قراءة رقم الطلب.");return}
  myOrders.unshift({id:orderId,token,name,pc});
  saveMyOrders();
  cart={};
@@ -266,7 +266,7 @@ async function getMyOrder(saved){
  const {data,error}=await db.rpc("get_food_order_by_token",{
   p_order_id:saved.id,p_cancel_token:saved.token
  });
- if(error) return null;
+ if(error)return null;
  return data;
 }
 
@@ -282,7 +282,7 @@ async function renderMyOrders(){
  area.innerHTML=valid.map(({saved,order})=>{
   const lines=Array.isArray(order.items)?order.items:[];
   return `<div class="order">
-   <div class="order-top"><b>طلب ${escapeHTML(order.pc_number||saved.pc)}</b>
+   <div class="order-top"><b>طلب PC ${escapeHTML(order.pc_number||saved.pc)}</b>
     <span class="pill ${order.status==="cancelled"?"cancelled":""}">${order.status==="cancelled"?"ملغي":"نشط"}</span>
    </div>
    <div class="muted">الاسم: ${escapeHTML(order.employee_name||saved.name)}</div>
@@ -312,7 +312,7 @@ async function deleteMyOrder(id){
  const saved=myOrders.find(x=>x.id===id);
  if(!saved || !confirm("هل أنت متأكد من حذف طلبك نهائياً؟"))return;
  const {data,error}=await db.rpc("delete_food_order_by_token",{p_order_id:id,p_cancel_token:saved.token});
- if(error || !data){alert("تعذر حذف الطلب. تأكد أن الطلب يخصك.");return}
+ if(error || !data){alert("تعذر حذف الطلب.");return}
  myOrders=myOrders.filter(x=>x.id!==id);
  saveMyOrders();
  await renderMyOrders();
@@ -428,18 +428,67 @@ function renderAdminOrders(){
 async function adminDeleteOrder(id){
  if(!adminUser || !confirm("تأكيد حذف هذا الطلب نهائياً؟"))return;
  const {error}=await db.from("food_orders").delete().eq("id",id);
- if(error){alert("تعذر حذف الطلب.");return}
+ if(error){alert("تعذر حذف الطلب: "+error.message);return}
  await loadAdminOrders();
 }
 
+/* النسخة المعدلة: حذف الطلبات واحداً تلو الآخر */
 async function deleteAllOrders(){
- if(!adminUser)return;
+ if(!adminUser){
+  alert("سجل دخول المسؤول أولاً.");
+  return;
+ }
+
  if(!confirm("تنبيه: سيتم حذف جميع الطلبات نهائياً. هل تريد المتابعة؟"))return;
  if(!confirm("تأكيد أخير: هل أنت متأكد من مسح كل الطلبات؟"))return;
- const {error}=await db.from("food_orders").delete().not("id","is",null);
- if(error){alert("تعذر مسح الطلبات.");return}
- await loadAdminOrders();
- alert("تم مسح جميع الطلبات.");
+
+ const button=$("deleteAllButton");
+ button.disabled=true;
+ button.textContent="جاري مسح الطلبات...";
+
+ try{
+  // تحميل أحدث قائمة من قاعدة البيانات قبل الحذف
+  const {data:orders,error:loadError}=await db
+   .from("food_orders")
+   .select("id,pc_number")
+   .order("created_at",{ascending:false});
+
+  if(loadError)throw loadError;
+
+  if(!orders || orders.length===0){
+   await loadAdminOrders();
+   alert("لا توجد طلبات لمسحها.");
+   return;
+  }
+
+  let deleted=0;
+
+  for(const order of orders){
+   const {data,error}=await db
+    .from("food_orders")
+    .delete()
+    .eq("id",order.id)
+    .select("id");
+
+   if(error)throw error;
+
+   if(!data || data.length===0){
+    throw new Error("لم يتم حذف الطلب الخاص برقم PC: "+order.pc_number);
+   }
+
+   deleted++;
+  }
+
+  await loadAdminOrders();
+  alert("تم حذف جميع الطلبات بنجاح ❤️\nعدد الطلبات المحذوفة: "+deleted);
+
+ }catch(error){
+  alert("لم يكتمل مسح الطلبات.\nالسبب: "+(error.message||"خطأ غير معروف"));
+  await loadAdminOrders();
+ }finally{
+  button.disabled=false;
+  button.textContent="🗑️ مسح جميع الطلبات";
+ }
 }
 
 function startRealtime(){
@@ -460,7 +509,6 @@ async function init(){
  await renderMyOrders();
  startRealtime();
  await checkSession();
- // تحديث طلبات الموظف دورياً حتى لو لم تصل له إشعارات Realtime
  setInterval(()=>renderMyOrders(),20000);
 }
 init();
